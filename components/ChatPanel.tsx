@@ -146,14 +146,22 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
   return (
     <div className="h-full flex flex-col bg-white">
       {/* 头部 */}
-      <div className="px-4 py-3 border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <span className="text-white text-lg">✨</span>
+      <div className="px-4 py-3 border-b border-gray-200 bg-white">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            {/* AI 助手图标 - 现代风格 */}
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="white" fillOpacity="0.9"/>
+                <path d="M2 17L12 22L22 17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fillOpacity="0.9"/>
+                <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fillOpacity="0.9"/>
+              </svg>
+            </div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
           </div>
-          <div>
+          <div className="flex-1">
             <h2 className="text-sm font-semibold text-gray-900">AI 助手</h2>
-            <p className="text-xs text-gray-500">GLM-4 Flash</p>
+            <p className="text-xs text-gray-500">在线</p>
           </div>
         </div>
       </div>
@@ -162,10 +170,15 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.length === 0 && !currentAssistantMessage && (
           <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-white text-3xl">✨</span>
+            {/* AI 助手图标 - 大号 */}
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="white" fillOpacity="0.9"/>
+                <path d="M2 17L12 22L22 17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fillOpacity="0.9"/>
+                <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fillOpacity="0.9"/>
+              </svg>
             </div>
-            <p className="text-base font-medium text-gray-900">你好！我是 AI 编程助手</p>
+            <p className="text-base font-semibold text-gray-900">AI 助手</p>
             <p className="text-sm text-gray-500 mt-2 mb-6">我可以帮你：</p>
             <div className="max-w-xs mx-auto space-y-2 text-left">
               <div className="flex items-start gap-2 text-sm text-gray-600">

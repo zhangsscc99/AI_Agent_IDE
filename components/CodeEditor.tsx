@@ -94,7 +94,18 @@ export function CodeEditor({ file, onContentChange }: CodeEditorProps) {
     return (
       <div className="h-full flex items-center justify-center bg-white">
         <div className="text-center">
-          <div className="text-6xl mb-4">📝</div>
+          {/* 现代化代码文件图标 */}
+          <div className="mb-6 flex justify-center">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* 文件外框 */}
+              <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z" fill="#E5E7EB"/>
+              <path d="M14 2V8H20" fill="#D1D5DB"/>
+              {/* 代码符号 */}
+              <path d="M9.5 13L8 14.5L9.5 16" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M14.5 13L16 14.5L14.5 16" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 12L11 17" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
           <p className="text-lg font-medium text-gray-900">没有打开的文件</p>
           <p className="text-sm text-gray-500 mt-2">从左侧选择一个文件或让 AI 创建新文件</p>
         </div>

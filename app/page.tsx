@@ -68,14 +68,24 @@ export default function Home() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="bg-white px-5 py-3 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-base font-medium text-gray-900">AI IDE Agent</h1>
-              {currentFile && (
-                <p className="text-xs text-gray-500 mt-0.5">{currentFile.path}</p>
-              )}
+            <div className="flex items-center gap-3">
+              {/* AI 助手 Logo */}
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="white" fillOpacity="0.9"/>
+                  <path d="M2 17L12 22L22 17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fillOpacity="0.9"/>
+                  <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fillOpacity="0.9"/>
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-base font-semibold text-gray-900">AI IDE Agent</h1>
+                {currentFile && (
+                  <p className="text-xs text-gray-500 mt-0.5">{currentFile.path}</p>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400">Powered by GLM-4</span>
+              <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded">GLM-4</span>
             </div>
           </div>
         </div>
