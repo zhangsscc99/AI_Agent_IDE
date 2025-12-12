@@ -160,7 +160,7 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
           </div>
           <div className="flex-1">
-            <h2 className="text-sm font-semibold text-gray-900">AI 助手</h2>
+            <h2 className="text-sm font-semibold text-gray-900">AI 编程助手</h2>
             <p className="text-xs text-gray-500">在线</p>
           </div>
         </div>
@@ -178,24 +178,24 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
                 <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fillOpacity="0.9"/>
               </svg>
             </div>
-            <p className="text-base font-semibold text-gray-900">AI 助手</p>
-            <p className="text-sm text-gray-500 mt-2 mb-6">我可以帮你：</p>
-            <div className="max-w-xs mx-auto space-y-2 text-left">
+            <p className="text-base font-semibold text-gray-900">AI 编程助手</p>
+            <p className="text-sm text-gray-500 mt-2 mb-3">让你无需亲手写代码，AI 自动完成</p>
+            <div className="max-w-xs mx-auto space-y-2 text-left mt-6">
               <div className="flex items-start gap-2 text-sm text-gray-600">
                 <span className="text-blue-500">•</span>
-                <span>创建和编辑代码文件</span>
+                <span>自动创建和编辑代码文件</span>
               </div>
               <div className="flex items-start gap-2 text-sm text-gray-600">
                 <span className="text-blue-500">•</span>
-                <span>理解和分析代码</span>
+                <span>智能分析和重构代码</span>
               </div>
               <div className="flex items-start gap-2 text-sm text-gray-600">
                 <span className="text-blue-500">•</span>
-                <span>解决编程问题</span>
+                <span>一句话完成复杂功能</span>
               </div>
               <div className="flex items-start gap-2 text-sm text-gray-600">
                 <span className="text-blue-500">•</span>
-                <span>重构和优化代码</span>
+                <span>实时修改，即时生效</span>
               </div>
             </div>
           </div>
