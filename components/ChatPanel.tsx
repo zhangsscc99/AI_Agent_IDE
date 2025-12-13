@@ -20,6 +20,7 @@ interface PendingChange {
   originalContent: string;
   modifiedContent: string;
   reasoning: string;
+  isApplying?: boolean;
 }
 
 interface ChatPanelProps {
@@ -269,7 +270,11 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
               filePath={pendingChange.filePath}
               originalContent={pendingChange.originalContent}
               modifiedContent={pendingChange.modifiedContent}
+              isApplying={pendingChange.isApplying}
               onApprove={async () => {
+                // 设置 loading 状态
+                setPendingChange({ ...pendingChange, isApplying: true });
+                
                 try {
                   const response = await fetch('/api/agent/approve', {
                     method: 'POST',
@@ -296,6 +301,7 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
                   }
                 } catch (error) {
                   console.error('Failed to apply changes:', error);
+                  setPendingChange({ ...pendingChange, isApplying: false });
                 }
               }}
               onReject={() => {
