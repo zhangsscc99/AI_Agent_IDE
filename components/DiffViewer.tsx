@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 
 // 正确导入 DiffEditor
@@ -28,6 +29,21 @@ export function DiffViewer({
   onReject,
   isApplying = false,
 }: DiffViewerProps) {
+  const editorRef = useRef<any>(null);
+  
+  // 组件卸载时清理编辑器
+  useEffect(() => {
+    return () => {
+      if (editorRef.current) {
+        try {
+          editorRef.current.dispose();
+        } catch (e) {
+          // 忽略清理错误
+        }
+      }
+    };
+  }, []);
+  
   const getLanguage = (path: string) => {
     const ext = path.split('.').pop()?.toLowerCase();
     const map: Record<string, string> = {
@@ -73,10 +89,14 @@ export function DiffViewer({
       {/* Diff 编辑器 */}
       <div className="h-[500px] bg-gray-50">
         <DiffEditor
+          key={`${filePath}-${originalContent?.length}-${modifiedContent?.length}`}
           original={originalContent}
           modified={modifiedContent}
           language={getLanguage(filePath)}
           theme="light"
+          onMount={(editor) => {
+            editorRef.current = editor;
+          }}
           options={{
             readOnly: true,
             renderSideBySide: true,

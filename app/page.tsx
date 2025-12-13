@@ -42,9 +42,9 @@ export default function Home() {
         />
       </div>
       
-      {/* 调整大小手柄 */}
+      {/* 调整大小手柄 - 加宽点击区域 */}
       <div
-        className="w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-colors relative group"
+        className="w-1.5 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-all relative group flex-shrink-0"
         onMouseDown={(e) => {
           const startX = e.clientX;
           const startWidth = sidebarWidth;
@@ -63,8 +63,8 @@ export default function Home() {
           document.addEventListener('mouseup', handleMouseUp);
         }}
       >
-        {/* 悬停时显示的宽手柄 */}
-        <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-blue-400 group-hover:opacity-30 transition-opacity"></div>
+        {/* 悬停时显示的加宽提示 */}
+        <div className="absolute inset-y-0 -left-2 -right-2 group-hover:bg-blue-400 group-hover:opacity-20 transition-all"></div>
       </div>
       
       {/* 代码编辑器 */}
@@ -104,9 +104,9 @@ export default function Home() {
         </div>
       </div>
       
-      {/* 调整大小手柄 */}
+      {/* 调整大小手柄 - 加宽点击区域 */}
       <div
-        className="w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-colors relative group"
+        className="w-1.5 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-all relative group flex-shrink-0"
         onMouseDown={(e) => {
           const startX = e.clientX;
           const startWidth = chatWidth;
@@ -125,8 +125,8 @@ export default function Home() {
           document.addEventListener('mouseup', handleMouseUp);
         }}
       >
-        {/* 悬停时显示的宽手柄 */}
-        <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-blue-400 group-hover:opacity-30 transition-opacity"></div>
+        {/* 悬停时显示的加宽提示 */}
+        <div className="absolute inset-y-0 -left-2 -right-2 group-hover:bg-blue-400 group-hover:opacity-20 transition-all"></div>
       </div>
       
       {/* AI 聊天面板 */}

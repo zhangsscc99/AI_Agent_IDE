@@ -28,7 +28,7 @@ export const readFileTool: Tool = {
 // 写入文件工具
 export const writeFileTool: Tool = {
   name: 'write_file',
-  description: 'Write or update a file in the workspace',
+  description: 'MUST use this tool to create or update files. Do not just suggest code. Actually write the file by calling this function.',
   parameters: {
     type: 'object',
     properties: {
