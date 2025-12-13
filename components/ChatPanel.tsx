@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { DiffViewer } from './DiffViewer';
 
 interface Message {
   id: string;
@@ -11,6 +12,14 @@ interface Message {
     type?: string;
     data?: any;
   };
+}
+
+interface PendingChange {
+  id: string;
+  filePath: string;
+  originalContent: string;
+  modifiedContent: string;
+  reasoning: string;
 }
 
 interface ChatPanelProps {
@@ -25,6 +34,7 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [currentAssistantMessage, setCurrentAssistantMessage] = useState('');
+  const [pendingChange, setPendingChange] = useState<PendingChange | null>(null);
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -109,6 +119,17 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
                 if (event.data?.path && onFileModified) {
                   setTimeout(() => onFileModified(), 500);
                 }
+              } else if (event.type === 'approval_required') {
+                // AI 请求用户审批代码修改
+                setPendingChange({
+                  id: event.data.id,
+                  filePath: event.data.filePath,
+                  originalContent: event.data.originalContent,
+                  modifiedContent: event.data.modifiedContent,
+                  reasoning: event.content,
+                });
+                assistantMessageContent += `\n\n💡 ${event.content}`;
+                setCurrentAssistantMessage(assistantMessageContent);
               } else if (event.type === 'error') {
                 assistantMessageContent += `\n\n❌ 错误: ${event.content}`;
                 setCurrentAssistantMessage(assistantMessageContent);
@@ -238,6 +259,56 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
                 <span className="inline-block w-2 h-4 ml-1 bg-blue-500 animate-pulse rounded" />
               </div>
             </div>
+          </div>
+        )}
+        
+        {/* 代码修改审批界面 */}
+        {pendingChange && (
+          <div className="px-4 py-3">
+            <DiffViewer
+              filePath={pendingChange.filePath}
+              originalContent={pendingChange.originalContent}
+              modifiedContent={pendingChange.modifiedContent}
+              onApprove={async () => {
+                try {
+                  const response = await fetch('/api/agent/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      sessionId,
+                      filePath: pendingChange.filePath,
+                      content: pendingChange.modifiedContent,
+                      approved: true,
+                    }),
+                  });
+                  
+                  if (response.ok) {
+                    setPendingChange(null);
+                    if (onFileModified) onFileModified();
+                    
+                    const successMsg: Message = {
+                      id: crypto.randomUUID(),
+                      role: 'assistant',
+                      content: `✅ 已应用修改到 ${pendingChange.filePath}`,
+                      timestamp: new Date(),
+                    };
+                    setMessages(prev => [...prev, successMsg]);
+                  }
+                } catch (error) {
+                  console.error('Failed to apply changes:', error);
+                }
+              }}
+              onReject={() => {
+                setPendingChange(null);
+                const rejectMsg: Message = {
+                  id: crypto.randomUUID(),
+                  role: 'assistant',
+                  content: '已拒绝本次修改',
+                  timestamp: new Date(),
+                };
+                setMessages(prev => [...prev, rejectMsg]);
+              }}
+            />
           </div>
         )}
         

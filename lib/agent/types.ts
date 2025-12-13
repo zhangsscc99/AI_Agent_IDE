@@ -72,6 +72,12 @@ export interface AgentResponse {
   error?: string;
 }
 
-
-
-
+// 代码修改建议（需要用户审批）
+export interface CodeChangeProposal {
+  id: string;
+  filePath: string;
+  originalContent: string;
+  modifiedContent: string;
+  reasoning: string;
+  timestamp: Date;
+}
