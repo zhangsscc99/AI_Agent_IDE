@@ -220,6 +220,14 @@ export class AgentExecutor {
               originalContent = ''; // 新文件
             }
             
+            // 修复换行符
+            const fixedNewContent = typeof newContent === 'string' 
+              ? newContent.replace(/\\r\\n/g, '\r\n').replace(/\\n/g, '\n')
+              : newContent;
+            const fixedOriginalContent = typeof originalContent === 'string'
+              ? originalContent.replace(/\\r\\n/g, '\r\n').replace(/\\n/g, '\n')
+              : originalContent;
+            
             // 请求用户审批
             yield {
               type: 'approval_required',
@@ -227,8 +235,8 @@ export class AgentExecutor {
               data: {
                 id: crypto.randomUUID(),
                 filePath,
-                originalContent,
-                modifiedContent: newContent,
+                originalContent: fixedOriginalContent,
+                modifiedContent: fixedNewContent,
               },
             };
             

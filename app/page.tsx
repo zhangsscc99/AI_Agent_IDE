@@ -44,7 +44,7 @@ export default function Home() {
       
       {/* 调整大小手柄 */}
       <div
-        className="w-[1px] bg-gray-200 hover:bg-blue-500 cursor-col-resize transition-colors"
+        className="w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-colors relative group"
         onMouseDown={(e) => {
           const startX = e.clientX;
           const startWidth = sidebarWidth;
@@ -62,7 +62,10 @@ export default function Home() {
           document.addEventListener('mousemove', handleMouseMove);
           document.addEventListener('mouseup', handleMouseUp);
         }}
-      />
+      >
+        {/* 悬停时显示的宽手柄 */}
+        <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-blue-400 group-hover:opacity-30 transition-opacity"></div>
+      </div>
       
       {/* 代码编辑器 */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -103,7 +106,7 @@ export default function Home() {
       
       {/* 调整大小手柄 */}
       <div
-        className="w-[1px] bg-gray-200 hover:bg-blue-500 cursor-col-resize transition-colors"
+        className="w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-colors relative group"
         onMouseDown={(e) => {
           const startX = e.clientX;
           const startWidth = chatWidth;
@@ -121,7 +124,10 @@ export default function Home() {
           document.addEventListener('mousemove', handleMouseMove);
           document.addEventListener('mouseup', handleMouseUp);
         }}
-      />
+      >
+        {/* 悬停时显示的宽手柄 */}
+        <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-blue-400 group-hover:opacity-30 transition-opacity"></div>
+      </div>
       
       {/* AI 聊天面板 */}
       <div
