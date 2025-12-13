@@ -240,8 +240,20 @@ export class AgentExecutor {
               },
             };
             
-            // 等待用户审批（这里跳过工具执行，由前端处理）
-            continue;
+            // 添加一个假的工具结果，告诉 AI 已经进入审批流程
+            messages.push({
+              role: 'tool',
+              content: JSON.stringify({ 
+                success: true, 
+                message: '修改建议已提交，等待用户审批' 
+              }),
+              tool_call_id: toolCall.id,
+              name: toolName,
+            });
+            
+            // 结束本轮对话，等待用户审批
+            yield { type: 'done', content: '' };
+            break;
           }
           
           yield {
