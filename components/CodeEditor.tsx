@@ -21,7 +21,7 @@ interface CodeEditorProps {
 }
 
 export function CodeEditor({ file, onContentChange }: CodeEditorProps) {
-  const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
+  const editorRef = useRef<any>(null);
   
   const handleEditorDidMount = (
     editor: any,

@@ -249,8 +249,11 @@ cd AI_Agent
 #### 5. 安装依赖
 
 ```bash
-npm install --production
+# ⚠️ 注意：构建需要 devDependencies，所以不要使用 --production
+npm install
 ```
+
+**说明：** 虽然生产运行不需要 devDependencies，但构建过程（`npm run build`）需要 TypeScript 等开发工具。
 
 #### 6. 配置环境变量
 
@@ -265,17 +268,55 @@ PORT=3000
 EOF
 ```
 
-#### 7. 构建项目
+#### 7. 构建项目（⚠️ 必需步骤）
 
 ```bash
+# ⚠️ 重要：必须先构建项目，否则无法启动生产服务器
+
+# 如果遇到 ChromaDB 构建错误，先确保 next.config.js 是最新的
+# 检查 next.config.js 是否包含 ChromaDB webpack 配置
+cat next.config.js | grep -A 10 "chromadb"
+
+# 如果配置缺失，需要更新代码（见下方故障排除）
+
+# 执行构建
 npm run build
+
+# 验证构建结果
+if [ ! -d ".next" ]; then
+  echo "❌ 构建失败：.next 目录不存在"
+  echo "请检查构建错误信息，常见问题见下方故障排除部分"
+  exit 1
+else
+  echo "✅ 构建成功：.next 目录已创建"
+fi
+```
+
+**注意：** 如果 `.next` 目录不存在，`next start` 会失败并提示：
+```
+Error: Could not find a production build in the '.next' directory.
+Try building your app with 'next build' before starting the production server.
+```
+
+**如果遇到 ChromaDB 构建错误：**
+```bash
+# 方案1: 更新代码（如果使用 Git）
+git pull origin main
+npm install
+npm run build
+
+# 方案2: 手动更新 next.config.js
+# 确保 next.config.js 包含 ChromaDB webpack 配置（见下方故障排除部分）
 ```
 
 #### 8. 启动服务
 
 ```bash
-# 使用 PM2 启动
-pm2 start npm --name "ai-ide-agent" -- start
+# 使用 PM2 启动（使用 ecosystem.config.js）
+pm2 start ecosystem.config.js
+
+# 或者使用命令行方式
+# pm2 start npm --name "ai-ide-agent" -- start
 
 # 设置开机自启
 pm2 startup
@@ -285,6 +326,11 @@ pm2 save
 pm2 status
 pm2 logs ai-ide-agent
 ```
+
+**如果遇到构建错误：**
+- 确保已安装所有依赖：`npm install`（不要使用 `--production`，构建需要 devDependencies）
+- 检查 Node.js 版本：`node -v`（需要 v20+）
+- 查看构建日志：`npm run build` 的输出
 
 #### 9. 配置 Nginx（反向代理）
 
@@ -602,10 +648,85 @@ export const logger = winston.createLogger({
 
 ### Q3: 构建失败？
 
-**检查：**
+**常见错误及解决方案：**
+
+#### 错误 1: "Could not find a production build in the '.next' directory"
+**原因：** 运行 `npm start` 前没有执行 `npm run build`
+
+**解决：**
+```bash
+npm run build  # 先构建
+npm start      # 再启动
+```
+
+#### 错误 2: "Module not found: Can't resolve '@/components/...'"
+**原因：** 使用了 `npm install --production`，移除了 devDependencies（包括 TypeScript）
+
+**解决：**
+```bash
+# 重新安装所有依赖（包括 devDependencies）
+npm install
+npm run build
+```
+
+**注意：** 构建需要 devDependencies（如 TypeScript），所以不要使用 `--production` 标志。
+
+#### 错误 3: "Module not found: Can't resolve '@chroma-core/default-embed'"
+**原因：** ChromaDB 是 Node.js 库，webpack 无法正确打包
+
+**解决：** 
+1. **确保服务器上的 `next.config.js` 是最新版本**（包含 ChromaDB webpack 配置）
+2. **如果服务器代码未更新，需要拉取最新代码：**
+   ```bash
+   # 在服务器上执行
+   cd /root/AI_Agent_IDE
+   git pull origin main  # 或你的分支名
+   # 或者手动更新 next.config.js
+   ```
+3. **重新构建：**
+   ```bash
+   npm run build
+   ```
+
+**如果问题仍然存在，检查 `next.config.js` 是否包含以下配置：**
+```javascript
+webpack: (config, { isServer }) => {
+  if (isServer) {
+    config.externals = [
+      ...(Array.isArray(config.externals) ? config.externals : [config.externals].filter(Boolean)),
+      ({ request }, callback) => {
+        if (request && (
+          request === 'chromadb' ||
+          request.startsWith('chromadb/') ||
+          request === '@chroma-core/default-embed' ||
+          request.startsWith('@chroma-core/')
+        )) {
+          return callback(null, `commonjs ${request}`);
+        }
+        callback();
+      }
+    ];
+  }
+  return config;
+}
+```
+
+#### 错误 4: "Function declarations are not allowed inside blocks in strict mode"
+**原因：** TypeScript 严格模式不允许在块内使用函数声明
+
+**解决：** 将函数声明改为箭头函数：
+```typescript
+// ❌ 错误
+async function walkDir(dir: string) { ... }
+
+// ✅ 正确
+const walkDir = async (dir: string) => { ... };
+```
+
+**其他检查：**
 1. Node.js 版本（需要 v20+）
 2. 内存是否充足（至少 2GB）
-3. 依赖是否正确安装
+3. 依赖是否正确安装（不要使用 `--production`）
 
 ### Q4: API 调用失败？
 

@@ -105,7 +105,7 @@ export class AgentExecutor {
       const fs = await import('fs/promises');
       const path = await import('path');
       
-      async function walkDir(dir: string): Promise<string[]> {
+      const walkDir = async (dir: string): Promise<string[]> => {
         const entries = await fs.readdir(dir, { withFileTypes: true });
         const files: string[] = [];
         for (const entry of entries) {
@@ -117,7 +117,7 @@ export class AgentExecutor {
           }
         }
         return files;
-      }
+      };
       
       const files = await walkDir(this.context.workspacePath);
       
