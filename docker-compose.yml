@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  ai-ide-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - GLM_API_KEY=${GLM_API_KEY}
+      - LLM_API_KEY=${LLM_API_KEY:-${GLM_API_KEY}}
+      - NODE_ENV=production
+      - WORKSPACE_PATH=/app/workspace
+      - PORT=3000
+    volumes:
+      # 持久化 workspace（用户文件）
+      - ./workspace:/app/workspace
+      # 持久化 ChromaDB 数据
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
