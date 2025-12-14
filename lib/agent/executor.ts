@@ -36,6 +36,22 @@ export class AgentExecutor {
 2. ❌ **禁止只输出代码块** - 代码块没用，用户看不到文件
 3. ❌ **禁止说"完成"** - 除非你真的调用了 write_file
 
+## 🔍 智能代码搜索
+
+在执行任务前，如果你不确定代码在哪里，使用 **search_codebase** 工具：
+
+### 何时使用
+- 用户问"在哪里...？"、"如何实现...？"
+- 需要修改功能但不知道在哪个文件
+- 想了解项目结构
+
+### 使用示例
+用户："添加用户认证日志"
+你：
+1. 🔍 search_codebase({ query: "user authentication" })
+2. 找到相关文件后，read_file 读取
+3. write_file 修改代码
+
 ## 📋 工作流程
 
 ### 创建新文件（必须调用工具！）
@@ -54,9 +70,10 @@ export class AgentExecutor {
 ### 修改现有文件  
 用户说："修改文件"、"添加功能"
 你必须：
-1. read_file({ path: "文件.py" })
-2. 分析代码
-3. write_file({ path: "文件.py", content: "修改后的完整代码" })
+1. 如果不确定文件位置：search_codebase({ query: "相关功能" })
+2. read_file({ path: "文件.py" })
+3. 分析代码
+4. write_file({ path: "文件.py", content: "修改后的完整代码" })
 
 ## ❌ 错误示例
 用户："创建一个新文件"
@@ -68,8 +85,13 @@ export class AgentExecutor {
 你：✅ 调用 write_file({ path: "new_file.py", content: "..." })
 你：✅ "我创建了 new_file.py，包含了..."
 
+用户："在哪里处理文件上传？"
+你：✅ 调用 search_codebase({ query: "file upload handling" })
+你：✅ "我找到了相关代码，在 app/api/workspace/upload/route.ts..."
+
 ## 🎯 记住
 - 用户要求创建/修改文件时，**必须调用 write_file**
+- 不确定代码位置时，先用 search_codebase 搜索
 - 不要只给代码建议，要实际执行
 - 调用工具后，系统会自动显示审批界面
 
@@ -297,7 +319,10 @@ export class AgentExecutor {
             yield {
               type: 'tool_result',
               content: `工具执行成功: ${toolName}`,
-              data: result,
+              data: {
+                tool: toolName,
+                ...result
+              },
             };
             
             // 添加工具结果到消息历史

@@ -113,8 +113,24 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
                 assistantMessageContent += `\n\n🔧 ${event.content}`;
                 setCurrentAssistantMessage(assistantMessageContent);
               } else if (event.type === 'tool_result') {
-                assistantMessageContent += `\n✅ ${event.content}`;
-                setCurrentAssistantMessage(assistantMessageContent);
+                // 特殊处理搜索结果
+                if (event.data?.tool === 'search_codebase' && event.data?.results) {
+                  // 添加搜索结果消息
+                  const searchResultMessage: Message = {
+                    id: crypto.randomUUID(),
+                    role: 'assistant',
+                    content: event.content,
+                    timestamp: new Date(),
+                    metadata: {
+                      type: 'search_result',
+                      data: event.data
+                    }
+                  };
+                  setMessages(prev => [...prev, searchResultMessage]);
+                } else {
+                  assistantMessageContent += `\n✅ ${event.content}`;
+                  setCurrentAssistantMessage(assistantMessageContent);
+                }
                 
                 // 如果是文件操作，触发刷新
                 if (event.data?.path && onFileModified) {
@@ -237,17 +253,49 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
                   : 'bg-gray-100 text-gray-900'
               }`}
             >
-              <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                {message.content}
-              </div>
-              <div className={`text-xs mt-2 ${
-                message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
-              }`}>
-                {message.timestamp.toLocaleTimeString('zh-CN', {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </div>
+              {/* 特殊处理搜索结果 */}
+              {message.metadata?.type === 'search_result' && message.metadata.data?.results ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-blue-600 mb-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <span>代码搜索结果</span>
+                  </div>
+                  {message.metadata.data.results.map((result: any, i: number) => (
+                    <div key={i} className="bg-white border border-gray-200 rounded-lg p-3 text-xs">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="font-mono text-blue-600 font-medium truncate">{result.file}</div>
+                        <div className="flex items-center gap-2 text-gray-500 text-xs shrink-0 ml-2">
+                          <span className="px-1.5 py-0.5 bg-gray-100 rounded">{result.type}</span>
+                          <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded">{(result.similarity * 100).toFixed(0)}%</span>
+                        </div>
+                      </div>
+                      {result.name && (
+                        <div className="text-gray-600 font-medium mb-1">{result.name}</div>
+                      )}
+                      <div className="text-gray-500 text-xs mb-2">行 {result.lines}</div>
+                      <pre className="text-xs bg-gray-50 p-2 rounded overflow-x-auto text-gray-700 whitespace-pre-wrap break-words">
+                        {result.preview}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                    {message.content}
+                  </div>
+                  <div className={`text-xs mt-2 ${
+                    message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+                  }`}>
+                    {message.timestamp.toLocaleTimeString('zh-CN', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ))}

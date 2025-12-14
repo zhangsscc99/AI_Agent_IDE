@@ -30,6 +30,7 @@ export function FileExplorer({
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [indexing, setIndexing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   
@@ -43,6 +44,33 @@ export function FileExplorer({
       console.error('Failed to load files:', error);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // 索引代码库
+  const handleIndexCodebase = async () => {
+    if (indexing) return;
+    
+    setIndexing(true);
+    try {
+      const response = await fetch('/api/codebase/index', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('✅ 代码库索引完成！现在 AI 可以智能搜索代码了。');
+      } else {
+        alert('❌ 索引失败: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Index error:', error);
+      alert('❌ 索引失败，请检查控制台');
+    } finally {
+      setIndexing(false);
     }
   };
   
@@ -203,10 +231,28 @@ export function FileExplorer({
             onClick={loadFiles}
             className="p-1.5 hover:bg-gray-200 rounded text-gray-600 transition-colors"
             disabled={loading}
+            title="刷新文件列表"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
+          </button>
+          <button
+            onClick={handleIndexCodebase}
+            className="p-1.5 hover:bg-blue-100 rounded text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={indexing || files.length === 0}
+            title={indexing ? "正在索引..." : "索引代码库（用于 AI 智能搜索）"}
+          >
+            {indexing ? (
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            )}
           </button>
         </div>
       </div>

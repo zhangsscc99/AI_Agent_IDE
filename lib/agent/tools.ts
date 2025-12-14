@@ -157,10 +157,72 @@ export const createPatchTool: Tool = {
 };
 
 // 工具注册表
+// 代码库搜索工具
+export const codebaseSearchTool: Tool = {
+  name: 'search_codebase',
+  description: 'Search the codebase using natural language to find relevant code. Use this tool when you need to understand the project structure or find where specific functionality is implemented.',
+  parameters: {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description: 'Natural language query describing what code you are looking for (e.g., "authentication logic", "file upload handling")'
+      },
+      topK: {
+        type: 'number',
+        description: 'Number of results to return (default: 5, max: 10)'
+      }
+    },
+    required: ['query']
+  },
+  execute: async ({ query, topK = 5 }) => {
+    try {
+      const response = await fetch('http://localhost:3000/api/codebase/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, topK: Math.min(topK, 10) })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Search failed');
+      }
+      
+      const { results } = await response.json();
+      
+      if (!results || results.length === 0) {
+        return {
+          success: true,
+          message: 'No results found. The codebase may not be indexed yet.',
+          results: []
+        };
+      }
+      
+      return {
+        success: true,
+        results: results.map((r: any) => ({
+          file: r.filePath,
+          lines: `${r.startLine}-${r.endLine}`,
+          type: r.type,
+          name: r.name || '',
+          similarity: r.similarity,
+          preview: r.content.length > 200 ? r.content.slice(0, 200) + '...' : r.content
+        }))
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+};
+
 export const TOOLS: Record<string, Tool> = {
   read_file: readFileTool,
   write_file: writeFileTool,
   list_files: listFilesTool,
+  search_codebase: codebaseSearchTool,
   apply_patch: applyPatchTool,
   create_patch: createPatchTool,
 };
