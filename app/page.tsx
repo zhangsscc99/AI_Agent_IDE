@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { FileExplorer } from '@/components/FileExplorer';
 import { CodeEditor } from '@/components/CodeEditor';
 import { ChatPanel } from '@/components/ChatPanel';
+import { generateUUID } from '@/lib/utils/uuid';
 
 export default function Home() {
-  const [sessionId] = useState(() => crypto.randomUUID());
+  const [sessionId] = useState(() => generateUUID());
   const [currentFile, setCurrentFile] = useState<{
     path: string;
     content: string;

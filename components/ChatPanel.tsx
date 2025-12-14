@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { DiffViewer } from './DiffViewer';
+import { generateUUID } from '@/lib/utils/uuid';
 
 interface Message {
   id: string;
@@ -60,7 +61,7 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
     }
     
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       role: 'user',
       content: input, // 显示原始消息
       timestamp: new Date(),
@@ -117,7 +118,7 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
                 if (event.data?.tool === 'search_codebase' && event.data?.results) {
                   // 添加搜索结果消息
                   const searchResultMessage: Message = {
-                    id: crypto.randomUUID(),
+                    id: generateUUID(),
                     role: 'assistant',
                     content: event.content,
                     timestamp: new Date(),
@@ -152,7 +153,7 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
                 setCurrentAssistantMessage(assistantMessageContent);
               } else if (event.type === 'done') {
                 const assistantMessage: Message = {
-                  id: crypto.randomUUID(),
+                  id: generateUUID(),
                   role: 'assistant',
                   content: assistantMessageContent || '完成',
                   timestamp: new Date(),
@@ -169,7 +170,7 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
     } catch (error: any) {
       console.error('Chat error:', error);
       const errorMessage: Message = {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         role: 'assistant',
         content: `❌ 错误: ${error.message}`,
         timestamp: new Date(),
@@ -340,7 +341,7 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
                     if (onFileModified) onFileModified();
                     
                     const successMsg: Message = {
-                      id: crypto.randomUUID(),
+                      id: generateUUID(),
                       role: 'assistant',
                       content: `✅ 已应用修改到 ${pendingChange.filePath}`,
                       timestamp: new Date(),
@@ -355,7 +356,7 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
               onReject={() => {
                 setPendingChange(null);
                 const rejectMsg: Message = {
-                  id: crypto.randomUUID(),
+                  id: generateUUID(),
                   role: 'assistant',
                   content: '已拒绝本次修改',
                   timestamp: new Date(),

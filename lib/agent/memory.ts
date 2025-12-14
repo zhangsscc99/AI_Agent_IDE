@@ -1,5 +1,6 @@
 // Agent 记忆系统 (简化版 - 内存存储)
 import { Memory } from './types';
+import { randomUUID } from 'crypto';
 
 // 使用内存存储替代 SQLite（避免 sql.js 兼容性问题）
 class InMemoryDatabase {
@@ -35,7 +36,7 @@ const db = new InMemoryDatabase();
 export class MemoryManager {
   // 添加记忆
   async addMemory(memory: Omit<Memory, 'id' | 'createdAt'>): Promise<Memory> {
-    const id = crypto.randomUUID();
+    const id = randomUUID();
     const createdAt = new Date();
     
     const fullMemory: Memory = {

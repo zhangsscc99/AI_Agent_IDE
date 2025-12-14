@@ -311,7 +311,23 @@ npm run build
 
 #### 8. 启动服务
 
+**前提条件：** 确保已成功构建（`.next` 目录存在）
+
+**方式1：使用启动脚本（推荐）**
 ```bash
+# 创建 logs 目录（如果不存在）
+mkdir -p logs
+
+# 使用启动脚本
+chmod +x start-pm2.sh
+./start-pm2.sh
+```
+
+**方式2：手动启动**
+```bash
+# 创建 logs 目录（如果不存在）
+mkdir -p logs
+
 # 使用 PM2 启动（使用 ecosystem.config.js）
 pm2 start ecosystem.config.js
 
@@ -325,6 +341,50 @@ pm2 save
 # 查看状态
 pm2 status
 pm2 logs ai-ide-agent
+```
+
+**常用 PM2 管理命令：**
+```bash
+# 查看所有进程状态
+pm2 status
+
+# 查看实时日志
+pm2 logs ai-ide-agent
+
+# 查看最近100行日志
+pm2 logs ai-ide-agent --lines 100
+
+# 重启应用
+pm2 restart ai-ide-agent
+
+# 停止应用
+pm2 stop ai-ide-agent
+
+# 删除应用（从 PM2 列表中移除）
+pm2 delete ai-ide-agent
+
+# 监控面板（CPU、内存使用情况）
+pm2 monit
+
+# 查看详细信息
+pm2 show ai-ide-agent
+
+# 清空所有日志
+pm2 flush
+```
+
+**验证服务运行：**
+```bash
+# 检查端口是否监听
+netstat -tlnp | grep 3000
+# 或
+ss -tlnp | grep 3000
+
+# 测试 HTTP 请求
+curl http://localhost:3000/api/health
+
+# 查看浏览器
+# 访问: http://your-server-ip:3000
 ```
 
 **如果遇到构建错误：**
