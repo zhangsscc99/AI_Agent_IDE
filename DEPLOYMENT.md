@@ -674,14 +674,22 @@ npm run build
 #### 错误 3: "Module not found: Can't resolve '@chroma-core/default-embed'"
 **原因：** ChromaDB 是 Node.js 库，webpack 无法正确打包
 
-**解决：** 
+**快速修复（推荐）：**
+```bash
+# 在服务器上执行
+cd /root/AI_Agent_IDE  # 或你的项目目录
+chmod +x fix-chromadb-build.sh
+./fix-chromadb-build.sh
+```
+
+**手动修复：**
 1. **确保服务器上的 `next.config.js` 是最新版本**（包含 ChromaDB webpack 配置）
 2. **如果服务器代码未更新，需要拉取最新代码：**
    ```bash
    # 在服务器上执行
    cd /root/AI_Agent_IDE
    git pull origin main  # 或你的分支名
-   # 或者手动更新 next.config.js
+   npm install
    ```
 3. **重新构建：**
    ```bash
