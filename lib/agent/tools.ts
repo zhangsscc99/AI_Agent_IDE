@@ -3,6 +3,7 @@ import { Tool } from './types';
 import fs from 'fs/promises';
 import path from 'path';
 import { applyPatch, createPatch } from 'diff';
+import { SDD_TOOLS } from '../sdd/spec-tools';
 
 // 读取文件工具
 export const readFileTool: Tool = {
@@ -225,6 +226,8 @@ export const TOOLS: Record<string, Tool> = {
   search_codebase: codebaseSearchTool,
   apply_patch: applyPatchTool,
   create_patch: createPatchTool,
+  // SDD 工具
+  ...SDD_TOOLS,
 };
 
 // 将工具转换为 LLM function calling 格式

@@ -1,0 +1,192 @@
+name: user_manager
+version: 1.0.0
+description: 用户管理模块，提供用户的 CRUD 操作和认证功能
+
+dependencies:
+  - bcrypt
+  - jsonwebtoken
+
+classes:
+  - name: User
+    description: 用户实体类
+    properties:
+      - name: id
+        type: number
+        description: 用户 ID
+        required: true
+      - name: username
+        type: string
+        description: 用户名
+        required: true
+      - name: email
+        type: string
+        description: 邮箱地址
+        required: true
+      - name: password
+        type: string
+        description: 加密后的密码
+        required: true
+      - name: role
+        type: string
+        description: 用户角色
+        required: false
+        default: "user"
+      - name: createdAt
+        type: Date
+        description: 创建时间
+        required: true
+    methods:
+      - name: validatePassword
+        description: 验证密码是否正确
+        parameters:
+          - name: password
+            type: string
+            description: 待验证的密码
+            required: true
+        returns:
+          type: Promise<boolean>
+          description: 密码是否正确
+      - name: generateToken
+        description: 生成 JWT token
+        parameters: []
+        returns:
+          type: string
+          description: JWT token
+
+functions:
+  - name: createUser
+    description: 创建新用户
+    parameters:
+      - name: username
+        type: string
+        description: 用户名
+        required: true
+      - name: email
+        type: string
+        description: 邮箱地址
+        required: true
+      - name: password
+        type: string
+        description: 密码（明文，会自动加密）
+        required: true
+      - name: role
+        type: string
+        description: 用户角色
+        required: false
+        default: "user"
+    returns:
+      type: Promise<User>
+      description: 创建的用户对象
+    constraints:
+      - 用户名必须唯一
+      - 用户名长度 3-20 个字符
+      - 邮箱必须有效且唯一
+      - 密码长度至少 6 个字符
+      - 密码必须包含字母和数字
+    examples:
+      - input:
+          username: "john_doe"
+          email: "john@example.com"
+          password: "pass123"
+        output:
+          id: 1
+          username: "john_doe"
+          email: "john@example.com"
+          role: "user"
+
+  - name: getUserById
+    description: 根据 ID 获取用户
+    parameters:
+      - name: id
+        type: number
+        description: 用户 ID
+        required: true
+    returns:
+      type: Promise<User | null>
+      description: 用户对象，如果不存在返回 null
+    examples:
+      - input:
+          id: 1
+        output:
+          id: 1
+          username: "john_doe"
+          email: "john@example.com"
+
+  - name: updateUser
+    description: 更新用户信息
+    parameters:
+      - name: id
+        type: number
+        description: 用户 ID
+        required: true
+      - name: updates
+        type: "Partial<User>"
+        description: 要更新的字段
+        required: true
+    returns:
+      type: Promise<User>
+      description: 更新后的用户对象
+    constraints:
+      - 不能修改 id 字段
+      - 不能直接修改 password（需要使用 changePassword）
+      - 修改 email 时需要验证唯一性
+
+  - name: deleteUser
+    description: 删除用户
+    parameters:
+      - name: id
+        type: number
+        description: 用户 ID
+        required: true
+    returns:
+      type: Promise<boolean>
+      description: 是否删除成功
+
+  - name: authenticateUser
+    description: 用户登录认证
+    parameters:
+      - name: username
+        type: string
+        description: 用户名或邮箱
+        required: true
+      - name: password
+        type: string
+        description: 密码
+        required: true
+    returns:
+      type: Promise<{ user: User; token: string } | null>
+      description: 认证成功返回用户和 token，失败返回 null
+    examples:
+      - input:
+          username: "john_doe"
+          password: "pass123"
+        output:
+          user:
+            id: 1
+            username: "john_doe"
+            email: "john@example.com"
+          token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+  - name: changePassword
+    description: 修改用户密码
+    parameters:
+      - name: userId
+        type: number
+        description: 用户 ID
+        required: true
+      - name: oldPassword
+        type: string
+        description: 旧密码
+        required: true
+      - name: newPassword
+        type: string
+        description: 新密码
+        required: true
+    returns:
+      type: Promise<boolean>
+      description: 是否修改成功
+    constraints:
+      - 旧密码必须正确
+      - 新密码不能与旧密码相同
+      - 新密码长度至少 6 个字符
+

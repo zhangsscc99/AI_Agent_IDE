@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { FileExplorer } from '@/components/FileExplorer';
 import { CodeEditor } from '@/components/CodeEditor';
 import { ChatPanel } from '@/components/ChatPanel';
+import { DebugPanel } from '@/components/DebugPanel';
 import { generateUUID } from '@/lib/utils/uuid';
 
 export default function Home() {
@@ -15,11 +16,40 @@ export default function Home() {
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [chatWidth, setChatWidth] = useState(380);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [activeTab, setActiveTab] = useState<'chat' | 'debug'>('chat');
+  const [debugSession, setDebugSession] = useState<any>(null);
+  const [debugEvents, setDebugEvents] = useState<any[]>([]);
   
   // 刷新当前文件
   const refreshCurrentFile = () => {
     setRefreshTrigger(prev => prev + 1);
   };
+  
+  // 处理调试事件
+  const handleDebugEvent = (event: any) => {
+    setDebugEvents(prev => [...prev, event]);
+  };
+  
+  // 构建调试会话数据（工作流程可视化）
+  useEffect(() => {
+    if (debugEvents.length > 0) {
+      const session = {
+        id: sessionId,
+        startTime: debugEvents[0]?.timestamp || Date.now(),
+        endTime: Date.now(),
+        events: debugEvents.map(e => ({
+          id: Math.random().toString(36).substr(2, 9),
+          sessionId: sessionId,
+          type: e.type,
+          timestamp: e.timestamp,
+          data: e.data || { content: e.content },
+          duration: e.duration
+        })),
+        summary: null // 不再显示性能统计
+      };
+      setDebugSession(session);
+    }
+  }, [debugEvents, sessionId]);
   
   return (
     <div className="flex h-screen bg-white text-gray-900">
@@ -130,16 +160,53 @@ export default function Home() {
         <div className="absolute inset-y-0 -left-2 -right-2 group-hover:bg-blue-400 group-hover:opacity-20 transition-all"></div>
       </div>
       
-      {/* AI 聊天面板 */}
+      {/* AI 聊天/调试面板 */}
       <div
-        className="border-l border-gray-200 overflow-hidden bg-white"
+        className="border-l border-gray-200 overflow-hidden bg-white flex flex-col"
         style={{ width: chatWidth }}
       >
-        <ChatPanel 
-          sessionId={sessionId} 
-          currentFile={currentFile}
-          onFileModified={refreshCurrentFile}
-        />
+        {/* 标签切换 */}
+        <div className="border-b border-gray-200 px-4 py-2 bg-gray-50 flex gap-2">
+          <button
+            onClick={() => setActiveTab('chat')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'chat'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            聊天
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('debug');
+              fetchDebugData();
+            }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'debug'
+                ? 'bg-white text-purple-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            调试
+          </button>
+        </div>
+
+        {/* 内容区域 */}
+        <div className="flex-1 overflow-hidden">
+          {activeTab === 'chat' ? (
+            <ChatPanel 
+              sessionId={sessionId} 
+              currentFile={currentFile}
+              onFileModified={refreshCurrentFile}
+              onDebugEvent={handleDebugEvent}
+            />
+          ) : (
+            <DebugPanel 
+              session={debugSession}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

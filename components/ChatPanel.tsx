@@ -28,15 +28,39 @@ interface ChatPanelProps {
   sessionId: string;
   currentFile: { path: string; content: string } | null;
   onFileModified?: () => void;
+  onDebugEvent?: (event: any) => void;
 }
 
-export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelProps) {
+export function ChatPanel({ sessionId, currentFile, onFileModified, onDebugEvent }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [currentAssistantMessage, setCurrentAssistantMessage] = useState('');
   const [pendingChange, setPendingChange] = useState<PendingChange | null>(null);
+  
+  // 从 localStorage 加载聊天记录
+  useEffect(() => {
+    const savedMessages = localStorage.getItem(`chat_messages_${sessionId}`);
+    if (savedMessages) {
+      try {
+        const parsed = JSON.parse(savedMessages);
+        setMessages(parsed.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        })));
+      } catch (error) {
+        console.error('Failed to load messages:', error);
+      }
+    }
+  }, [sessionId]);
+  
+  // 保存聊天记录到 localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(`chat_messages_${sessionId}`, JSON.stringify(messages));
+    }
+  }, [messages, sessionId]);
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -72,6 +96,15 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
     setIsLoading(true);
     setCurrentAssistantMessage('');
     
+    // 记录会话开始
+    if (onDebugEvent) {
+      onDebugEvent({
+        type: 'agent_start',
+        content: 'Agent 开始处理请求',
+        timestamp: Date.now()
+      });
+    }
+    
     try {
       const response = await fetch('/api/agent/chat', {
         method: 'POST',
@@ -93,6 +126,7 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
       const decoder = new TextDecoder();
       let buffer = '';
       let assistantMessageContent = '';
+      let lastToolCallTime: number | null = null;
       
       while (true) {
         const { done, value } = await reader.read();
@@ -111,9 +145,36 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
                 assistantMessageContent += event.content;
                 setCurrentAssistantMessage(assistantMessageContent);
               } else if (event.type === 'tool_call') {
+                lastToolCallTime = Date.now();
+                
+                // 记录工具调用事件
+                if (onDebugEvent) {
+                  onDebugEvent({
+                    type: 'tool_call',
+                    content: event.content,
+                    timestamp: Date.now(),
+                    data: event.data
+                  });
+                }
+                
                 assistantMessageContent += `\n\n🔧 ${event.content}`;
                 setCurrentAssistantMessage(assistantMessageContent);
               } else if (event.type === 'tool_result') {
+                // 计算工具执行耗时
+                const duration = lastToolCallTime ? Date.now() - lastToolCallTime : 0;
+                
+                // 记录工具结果事件（包含耗时）
+                if (onDebugEvent) {
+                  onDebugEvent({
+                    type: 'tool_result',
+                    content: event.content,
+                    timestamp: Date.now(),
+                    duration,
+                    data: event.data
+                  });
+                }
+                
+                lastToolCallTime = null;
                 // 特殊处理搜索结果
                 if (event.data?.tool === 'search_codebase' && event.data?.results) {
                   // 添加搜索结果消息
@@ -138,6 +199,16 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
                   setTimeout(() => onFileModified(), 500);
                 }
               } else if (event.type === 'approval_required') {
+                // 记录审批请求事件
+                if (onDebugEvent) {
+                  onDebugEvent({
+                    type: 'approval_required',
+                    content: event.content,
+                    timestamp: Date.now(),
+                    data: event.data
+                  });
+                }
+                
                 // AI 请求用户审批代码修改
                 setPendingChange({
                   id: event.data.id,
@@ -149,6 +220,16 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
                 assistantMessageContent += `\n\n💡 ${event.content}`;
                 setCurrentAssistantMessage(assistantMessageContent);
               } else if (event.type === 'error') {
+                // 记录错误事件
+                if (onDebugEvent) {
+                  onDebugEvent({
+                    type: 'error',
+                    content: event.content,
+                    timestamp: Date.now(),
+                    data: event.data
+                  });
+                }
+                
                 assistantMessageContent += `\n\n❌ 错误: ${event.content}`;
                 setCurrentAssistantMessage(assistantMessageContent);
               } else if (event.type === 'done') {
@@ -160,6 +241,15 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
                 };
                 setMessages(prev => [...prev, assistantMessage]);
                 setCurrentAssistantMessage('');
+                
+                // 记录会话结束
+                if (onDebugEvent) {
+                  onDebugEvent({
+                    type: 'agent_end',
+                    content: 'Agent 完成处理',
+                    timestamp: Date.now()
+                  });
+                }
               }
             } catch (e) {
               console.error('Failed to parse event:', e);
@@ -169,6 +259,17 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
       }
     } catch (error: any) {
       console.error('Chat error:', error);
+      
+      // 记录错误
+      if (onDebugEvent) {
+        onDebugEvent({
+          type: 'error',
+          content: error.message,
+          timestamp: Date.now(),
+          data: { error: error.message }
+        });
+      }
+      
       const errorMessage: Message = {
         id: generateUUID(),
         role: 'assistant',
@@ -202,6 +303,20 @@ export function ChatPanel({ sessionId, currentFile, onFileModified }: ChatPanelP
             <h2 className="text-sm font-semibold text-gray-900">AI 编程助手</h2>
             <p className="text-xs text-gray-500">在线</p>
           </div>
+          {messages.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm('确定要清空所有聊天记录吗？')) {
+                  setMessages([]);
+                  localStorage.removeItem(`chat_messages_${sessionId}`);
+                }
+              }}
+              className="text-xs text-gray-400 hover:text-red-500 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+              title="清空聊天记录"
+            >
+              清空
+            </button>
+          )}
         </div>
       </div>
       

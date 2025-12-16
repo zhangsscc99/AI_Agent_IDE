@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       sessionId,
       workspacePath,
       llmClient,
+      enableDebug: true,  // 启用调试追踪
     });
     
     // 创建 SSE 流

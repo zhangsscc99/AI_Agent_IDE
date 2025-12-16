@@ -3,6 +3,7 @@ import { Message, AgentContext, Task, TaskStatus } from './types';
 import { LLMClient } from './llm';
 import { TOOLS, toolsToFunctions } from './tools';
 import { memoryManager } from './memory';
+import { debugTracer } from '../debug/tracer';
 import crypto from 'crypto';
 
 export interface AgentExecutorOptions {
@@ -10,6 +11,7 @@ export interface AgentExecutorOptions {
   workspacePath: string;
   llmClient: LLMClient;
   maxIterations?: number;
+  enableDebug?: boolean; // 启用调试追踪
 }
 
 export class AgentExecutor {
@@ -143,6 +145,11 @@ export class AgentExecutor {
     data?: any;
   }> {
     try {
+      // 启动调试会话
+      if (this.options.enableDebug) {
+        debugTracer.startSession(this.context.sessionId);
+      }
+      
       // 保存用户消息到记忆
       await memoryManager.addMemory({
         sessionId: this.context.sessionId,
@@ -180,6 +187,18 @@ export class AgentExecutor {
         let currentToolCalls: any[] = [];
         let currentResponse = '';
         
+        // 追踪 LLM 调用
+        let llmEventId: string | undefined;
+        if (this.options.enableDebug) {
+          llmEventId = debugTracer.traceLLMCall(
+            this.context.sessionId,
+            'glm-4-flash',
+            messages,
+            tools,
+            0.7
+          );
+        }
+        
         // 流式调用 LLM
         for await (const chunk of this.options.llmClient.streamChat(
           messages,
@@ -204,6 +223,15 @@ export class AgentExecutor {
           }
         }
         
+        // 追踪 LLM 响应
+        if (this.options.enableDebug && llmEventId) {
+          debugTracer.traceLLMResponse(
+            this.context.sessionId,
+            llmEventId,
+            currentResponse
+          );
+        }
+        
         // 如果有响应内容，添加到消息历史
         if (currentResponse) {
           messages.push({
@@ -221,6 +249,11 @@ export class AgentExecutor {
             content: fullResponse,
             metadata: { role: 'assistant' },
           });
+          
+          // 结束调试会话
+          if (this.options.enableDebug) {
+            debugTracer.endSession(this.context.sessionId);
+          }
           
           yield { type: 'done', content: '' };
           break;
@@ -297,6 +330,16 @@ export class AgentExecutor {
             data: { name: toolName, args: toolArgs },
           };
           
+          // 追踪工具调用
+          let toolEventId: string | undefined;
+          if (this.options.enableDebug) {
+            toolEventId = debugTracer.traceToolCall(
+              this.context.sessionId,
+              toolName,
+              toolArgs
+            );
+          }
+          
           try {
             const tool = TOOLS[toolName];
             if (!tool) {
@@ -307,6 +350,15 @@ export class AgentExecutor {
               ...toolArgs,
               workspacePath: this.context.workspacePath,
             });
+            
+            // 追踪工具结果
+            if (this.options.enableDebug && toolEventId) {
+              debugTracer.traceToolResult(
+                this.context.sessionId,
+                toolEventId,
+                result
+              );
+            }
             
             // 记录工具调用
             await memoryManager.addMemory({
@@ -341,6 +393,19 @@ export class AgentExecutor {
               });
             }
           } catch (error: any) {
+            // 追踪错误
+            if (this.options.enableDebug) {
+              if (toolEventId) {
+                debugTracer.traceToolResult(
+                  this.context.sessionId,
+                  toolEventId,
+                  null,
+                  error.message
+                );
+              }
+              debugTracer.traceError(this.context.sessionId, error);
+            }
+            
             yield {
               type: 'error',
               content: `工具执行失败: ${error.message}`,
@@ -358,12 +423,25 @@ export class AgentExecutor {
       }
       
       if (iterations >= maxIterations) {
+        if (this.options.enableDebug) {
+          debugTracer.traceError(
+            this.context.sessionId,
+            '达到最大迭代次数'
+          );
+          debugTracer.endSession(this.context.sessionId);
+        }
+        
         yield {
           type: 'error',
           content: '达到最大迭代次数',
         };
       }
     } catch (error: any) {
+      if (this.options.enableDebug) {
+        debugTracer.traceError(this.context.sessionId, error);
+        debugTracer.endSession(this.context.sessionId);
+      }
+      
       yield {
         type: 'error',
         content: error.message,

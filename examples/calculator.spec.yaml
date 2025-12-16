@@ -1,0 +1,119 @@
+name: calculator
+version: 1.0.0
+description: 一个简单的计算器模块，提供基本的数学运算功能
+
+functions:
+  - name: add
+    description: 两个数相加
+    parameters:
+      - name: a
+        type: number
+        description: 第一个加数
+        required: true
+      - name: b
+        type: number
+        description: 第二个加数
+        required: true
+    returns:
+      type: number
+      description: 两数之和
+    examples:
+      - input:
+          a: 2
+          b: 3
+        output: 5
+        description: 正数相加
+      - input:
+          a: -5
+          b: 10
+        output: 5
+        description: 负数与正数相加
+
+  - name: subtract
+    description: 两个数相减
+    parameters:
+      - name: a
+        type: number
+        description: 被减数
+        required: true
+      - name: b
+        type: number
+        description: 减数
+        required: true
+    returns:
+      type: number
+      description: 两数之差
+    examples:
+      - input:
+          a: 10
+          b: 3
+        output: 7
+
+  - name: multiply
+    description: 两个数相乘
+    parameters:
+      - name: a
+        type: number
+        description: 第一个乘数
+        required: true
+      - name: b
+        type: number
+        description: 第二个乘数
+        required: true
+    returns:
+      type: number
+      description: 两数之积
+    examples:
+      - input:
+          a: 4
+          b: 5
+        output: 20
+
+  - name: divide
+    description: 两个数相除
+    parameters:
+      - name: a
+        type: number
+        description: 被除数
+        required: true
+      - name: b
+        type: number
+        description: 除数
+        required: true
+    returns:
+      type: number
+      description: 两数之商
+    examples:
+      - input:
+          a: 20
+          b: 4
+        output: 5
+    constraints:
+      - 除数不能为 0
+      - 结果应该是浮点数
+
+  - name: power
+    description: 计算幂次方
+    parameters:
+      - name: base
+        type: number
+        description: 底数
+        required: true
+      - name: exponent
+        type: number
+        description: 指数
+        required: true
+        default: 2
+    returns:
+      type: number
+      description: base 的 exponent 次方
+    examples:
+      - input:
+          base: 2
+          exponent: 3
+        output: 8
+      - input:
+          base: 5
+          exponent: 2
+        output: 25
+

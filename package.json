@@ -15,6 +15,7 @@
     "chokidar": "^5.0.0",
     "chromadb": "^3.1.7",
     "diff": "^5.2.0",
+    "js-yaml": "^4.1.0",
     "next": "14.2.18",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@types/babel__traverse": "^7.28.0",
     "@types/diff": "^5.2.3",
+    "@types/js-yaml": "^4.0.5",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
