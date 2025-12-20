@@ -20,7 +20,8 @@ interface DiffViewerProps {
   onReject?: () => void;
   isApplying?: boolean;
   mode?: 'approval' | 'preview';
-  height?: number;
+  height?: number | string;
+  showActions?: boolean;
 }
 
 export function DiffViewer({
@@ -32,8 +33,13 @@ export function DiffViewer({
   isApplying = false,
   mode = 'approval',
   height = 500,
+  showActions = true,
 }: DiffViewerProps) {
   const editorRef = useRef<any>(null);
+  const isFullHeight = typeof height === 'string' && height === '100%';
+  const diffAreaStyle = isFullHeight
+    ? { flex: 1 }
+    : { height };
   
   // 组件卸载时清理编辑器
   useEffect(() => {
@@ -61,7 +67,11 @@ export function DiffViewer({
   const isPreview = mode === 'preview';
 
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+    <div
+      className={`border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm ${
+        isFullHeight ? 'h-full flex flex-col' : ''
+      }`}
+    >
       {/* 头部 */}
       <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-white border-b border-gray-200">
         <div className="flex items-center gap-3">
@@ -99,7 +109,7 @@ export function DiffViewer({
       </div>
 
       {/* Diff 编辑器 */}
-      <div className="bg-gray-50" style={{ height }}>
+      <div className={`bg-gray-50 ${isFullHeight ? 'flex-1' : ''}`} style={diffAreaStyle}>
         <DiffEditor
           key={`${filePath}-${originalContent?.length}-${modifiedContent?.length}`}
           original={originalContent}
@@ -125,7 +135,7 @@ export function DiffViewer({
       </div>
 
       {/* 底部操作按钮 */}
-      {mode === 'approval' && (
+      {mode === 'approval' && showActions && (
         <div className="px-5 py-3 bg-white border-t border-gray-200">
           <div className="flex items-center justify-end">
             <div className="flex gap-3">

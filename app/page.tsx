@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FileExplorer } from '@/components/FileExplorer';
 import { CodeEditor } from '@/components/CodeEditor';
-import { ChatPanel } from '@/components/ChatPanel';
+import { ChatPanel, DiffPanelPayload } from '@/components/ChatPanel';
 import { DebugPanel } from '@/components/DebugPanel';
+import { DiffViewer } from '@/components/DiffViewer';
 import { generateUUID } from '@/lib/utils/uuid';
 
 export default function Home() {
@@ -20,6 +21,7 @@ export default function Home() {
   const [workflowData, setWorkflowData] = useState<any>(null);
   const [workflowLoading, setWorkflowLoading] = useState(false);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
+  const [diffPanel, setDiffPanel] = useState<DiffPanelPayload | null>(null);
   
   const fetchWorkflow = useCallback(async () => {
     try {
@@ -47,6 +49,10 @@ export default function Home() {
   const handleDebugEvent = useCallback(() => {
     fetchWorkflow();
   }, [fetchWorkflow]);
+
+  const handleDiffPanelChange = useCallback((payload: DiffPanelPayload | null) => {
+    setDiffPanel(payload);
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'debug') {
@@ -101,7 +107,7 @@ export default function Home() {
         <div className="absolute inset-y-0 -left-2 -right-2 group-hover:bg-blue-400 group-hover:opacity-20 transition-all"></div>
       </div>
       
-      {/* 代码编辑器 */}
+      {/* 代码编辑器 / Diff 预览 */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="bg-white px-5 py-3 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -126,16 +132,65 @@ export default function Home() {
             </div>
           </div>
         </div>
-        <div className="flex-1 overflow-hidden">
-          <CodeEditor
-            file={currentFile}
-            onContentChange={(content) => {
-              if (currentFile) {
-                setCurrentFile({ ...currentFile, content });
-              }
-            }}
-          />
-        </div>
+        {diffPanel ? (
+          <div className="flex-1 overflow-hidden bg-gray-50 flex flex-col">
+            <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{diffPanel.title}</p>
+                {diffPanel.subtitle && (
+                  <p className="text-xs text-gray-500 mt-0.5">{diffPanel.subtitle}</p>
+                )}
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                diffPanel.source === 'approval'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                {diffPanel.source === 'approval' ? '待审批' : '检查点预览'}
+              </span>
+            </div>
+            <div className="flex-1 overflow-hidden p-4">
+              <DiffViewer
+                filePath={diffPanel.filePath}
+                originalContent={diffPanel.originalContent}
+                modifiedContent={diffPanel.modifiedContent}
+                isApplying={diffPanel.isApplying}
+                mode={diffPanel.source === 'approval' ? 'approval' : 'preview'}
+                showActions={false}
+                height="100%"
+              />
+            </div>
+            {diffPanel.source === 'approval' && (
+              <div className="px-5 py-3 border-t border-gray-200 bg-white flex items-center justify-end gap-3">
+                <button
+                  onClick={diffPanel.onReject}
+                  disabled={diffPanel.isApplying}
+                  className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  拒绝
+                </button>
+                <button
+                  onClick={diffPanel.onApprove}
+                  disabled={diffPanel.isApplying}
+                  className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
+                >
+                  ✓ 确认
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1 overflow-hidden">
+            <CodeEditor
+              file={currentFile}
+              onContentChange={(content) => {
+                if (currentFile) {
+                  setCurrentFile({ ...currentFile, content });
+                }
+              }}
+            />
+          </div>
+        )}
       </div>
       
       {/* 调整大小手柄 - 加宽点击区域 */}
@@ -204,6 +259,7 @@ export default function Home() {
               workflow={workflowData}
               onFileModified={refreshCurrentFile}
               onDebugEvent={handleDebugEvent}
+              onDiffPanelChange={handleDiffPanelChange}
             />
           ) : (
             <DebugPanel 

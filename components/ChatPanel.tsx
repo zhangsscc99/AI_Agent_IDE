@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { DiffViewer } from './DiffViewer';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { generateUUID } from '@/lib/utils/uuid';
 import { WorkflowRun, WorkflowStep } from '@/lib/agent/types';
 
@@ -25,15 +24,29 @@ interface PendingChange {
   isApplying?: boolean;
 }
 
+export interface DiffPanelPayload {
+  source: 'approval' | 'workflow';
+  checkpointId?: string;
+  filePath: string;
+  originalContent: string;
+  modifiedContent: string;
+  title: string;
+  subtitle?: string;
+  isApplying?: boolean;
+  onApprove?: () => void | Promise<void>;
+  onReject?: () => void | Promise<void>;
+}
+
 interface ChatPanelProps {
   sessionId: string;
   currentFile: { path: string; content: string } | null;
   workflow?: WorkflowRun | null;
   onFileModified?: () => void;
   onDebugEvent?: (event: any) => void;
+  onDiffPanelChange?: (data: DiffPanelPayload | null) => void;
 }
 
-export function ChatPanel({ sessionId, currentFile, workflow, onFileModified, onDebugEvent }: ChatPanelProps) {
+export function ChatPanel({ sessionId, currentFile, workflow, onFileModified, onDebugEvent, onDiffPanelChange }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -48,6 +61,87 @@ export function ChatPanel({ sessionId, currentFile, workflow, onFileModified, on
   } | null>(null);
   const [checkpointPreviewLoading, setCheckpointPreviewLoading] = useState(false);
   const [checkpointPreviewError, setCheckpointPreviewError] = useState<string | null>(null);
+
+  const applyPendingChange = useCallback(async () => {
+    if (!pendingChange) return;
+    setPendingChange(prev => prev ? { ...prev, isApplying: true } : prev);
+
+    try {
+      const response = await fetch('/api/agent/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          filePath: pendingChange.filePath,
+          content: pendingChange.modifiedContent,
+          approved: true,
+          checkpointId: pendingChange.id,
+        }),
+      });
+
+      if (response.ok) {
+        setPendingChange(null);
+        if (onFileModified) onFileModified();
+        if (onDebugEvent) {
+          onDebugEvent({
+            type: 'checkpoint_update',
+            timestamp: Date.now(),
+            data: { checkpointId: pendingChange.id, status: 'approved' }
+          });
+        }
+        if (onDiffPanelChange) onDiffPanelChange(null);
+
+        const successMsg: Message = {
+          id: generateUUID(),
+          role: 'assistant',
+          content: `✅ 已应用修改到 ${pendingChange.filePath}`,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, successMsg]);
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || '审批失败');
+      }
+    } catch (error) {
+      console.error('Failed to apply changes:', error);
+      setPendingChange(prev => prev ? { ...prev, isApplying: false } : prev);
+    }
+  }, [pendingChange, sessionId, onFileModified, onDiffPanelChange, onDebugEvent]);
+
+  const rejectPendingChange = useCallback(async () => {
+    if (!pendingChange) return;
+    setPendingChange(prev => prev ? { ...prev, isApplying: true } : prev);
+    try {
+      await fetch('/api/agent/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          filePath: pendingChange.filePath,
+          approved: false,
+          checkpointId: pendingChange.id,
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to reject changes:', error);
+    }
+    setPendingChange(null);
+    if (onDebugEvent) {
+      onDebugEvent({
+        type: 'checkpoint_update',
+        timestamp: Date.now(),
+        data: { checkpointId: pendingChange.id, status: 'rejected' }
+      });
+    }
+    if (onDiffPanelChange) onDiffPanelChange(null);
+    const rejectMsg: Message = {
+      id: generateUUID(),
+      role: 'assistant',
+      content: '已拒绝本次修改',
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, rejectMsg]);
+  }, [pendingChange, sessionId, onDiffPanelChange, onDebugEvent]);
   
   // 从 localStorage 加载聊天记录
   useEffect(() => {
@@ -179,6 +273,48 @@ export function ChatPanel({ sessionId, currentFile, workflow, onFileModified, on
         return type;
     }
   };
+
+  useEffect(() => {
+    if (!onDiffPanelChange) return;
+
+    if (pendingChange) {
+      onDiffPanelChange({
+        source: 'approval',
+        checkpointId: pendingChange.id,
+        filePath: pendingChange.filePath,
+        originalContent: pendingChange.originalContent,
+        modifiedContent: pendingChange.modifiedContent,
+        title: `修改 ${pendingChange.filePath}`,
+        subtitle: 'AI 正等待您审批这些修改',
+        isApplying: pendingChange.isApplying,
+        onApprove: applyPendingChange,
+        onReject: rejectPendingChange,
+      });
+      return;
+    }
+
+    if (selectedWorkflowStep?.metadata?.checkpointId && checkpointPreview) {
+      onDiffPanelChange({
+        source: 'workflow',
+        checkpointId: selectedWorkflowStep.metadata.checkpointId,
+        filePath: checkpointPreview.filePath,
+        originalContent: checkpointPreview.originalContent,
+        modifiedContent: checkpointPreview.modifiedContent,
+        title: selectedWorkflowStep.title,
+        subtitle: selectedWorkflowStep.metadata?.filePath || undefined,
+      });
+      return;
+    }
+
+    onDiffPanelChange(null);
+  }, [
+    pendingChange,
+    checkpointPreview,
+    selectedWorkflowStep,
+    onDiffPanelChange,
+    applyPendingChange,
+    rejectPendingChange,
+  ]);
   
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
@@ -488,21 +624,15 @@ export function ChatPanel({ sessionId, currentFile, workflow, onFileModified, on
                 )}
               </div>
               {selectedWorkflowStep.metadata?.checkpointId && (
-                <div className="border-t border-gray-100">
+                <div className="border-t border-gray-100 p-3 text-xs">
                   {checkpointPreviewLoading && (
-                    <div className="p-3 text-xs text-gray-500">正在加载代码差异...</div>
+                    <p className="text-gray-500">正在加载代码差异...</p>
                   )}
                   {checkpointPreviewError && (
-                    <div className="p-3 text-xs text-red-500">{checkpointPreviewError}</div>
+                    <p className="text-red-500">{checkpointPreviewError}</p>
                   )}
                   {checkpointPreview && !checkpointPreviewLoading && !checkpointPreviewError && (
-                    <DiffViewer
-                      filePath={checkpointPreview.filePath}
-                      originalContent={checkpointPreview.originalContent}
-                      modifiedContent={checkpointPreview.modifiedContent}
-                      mode="preview"
-                      height={260}
-                    />
+                    <p className="text-blue-600">代码差异已在编辑器区域展示</p>
                   )}
                 </div>
               )}
@@ -618,88 +748,18 @@ export function ChatPanel({ sessionId, currentFile, workflow, onFileModified, on
           </div>
         )}
         
-        {/* 代码修改审批界面 */}
+        {/* 代码修改审批提示 */}
         {pendingChange && (
           <div className="px-4 py-3">
-            <DiffViewer
-              filePath={pendingChange.filePath}
-              originalContent={pendingChange.originalContent}
-              modifiedContent={pendingChange.modifiedContent}
-              isApplying={pendingChange.isApplying}
-              onApprove={async () => {
-                // 设置 loading 状态
-                setPendingChange({ ...pendingChange, isApplying: true });
-                
-                try {
-                  const response = await fetch('/api/agent/approve', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      sessionId,
-                      filePath: pendingChange.filePath,
-                      content: pendingChange.modifiedContent,
-                      approved: true,
-                      checkpointId: pendingChange.id,
-                    }),
-                  });
-                  
-                  if (response.ok) {
-                    setPendingChange(null);
-                    if (onFileModified) onFileModified();
-                    if (onDebugEvent) {
-                      onDebugEvent({
-                        type: 'checkpoint_update',
-                        timestamp: Date.now(),
-                        data: { checkpointId: pendingChange.id, status: 'approved' }
-                      });
-                    }
-
-                    const successMsg: Message = {
-                      id: generateUUID(),
-                      role: 'assistant',
-                      content: `✅ 已应用修改到 ${pendingChange.filePath}`,
-                      timestamp: new Date(),
-                    };
-                    setMessages(prev => [...prev, successMsg]);
-                  }
-                } catch (error) {
-                  console.error('Failed to apply changes:', error);
-                  setPendingChange({ ...pendingChange, isApplying: false });
-                }
-              }}
-              onReject={async () => {
-                setPendingChange({ ...pendingChange, isApplying: true });
-                try {
-                  await fetch('/api/agent/approve', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      sessionId,
-                      filePath: pendingChange.filePath,
-                      approved: false,
-                      checkpointId: pendingChange.id,
-                    }),
-                  });
-                } catch (error) {
-                  console.error('Failed to reject changes:', error);
-                }
-                setPendingChange(null);
-                if (onDebugEvent) {
-                  onDebugEvent({
-                    type: 'checkpoint_update',
-                    timestamp: Date.now(),
-                    data: { checkpointId: pendingChange.id, status: 'rejected' }
-                  });
-                }
-                const rejectMsg: Message = {
-                  id: generateUUID(),
-                  role: 'assistant',
-                  content: '已拒绝本次修改',
-                  timestamp: new Date(),
-                };
-                setMessages(prev => [...prev, rejectMsg]);
-              }}
-            />
+            <div className="border border-blue-100 bg-blue-50 rounded-xl p-4">
+              <p className="text-sm text-gray-900 font-semibold mb-1">等待审批: {pendingChange.filePath}</p>
+              <p className="text-xs text-gray-600">
+                AI 已生成新的代码差异，并在中间编辑区展示。请在编辑区确认或拒绝本次修改。
+              </p>
+              {pendingChange.isApplying && (
+                <p className="text-xs text-blue-600 mt-2">正在应用修改...</p>
+              )}
+            </div>
           </div>
         )}
         
