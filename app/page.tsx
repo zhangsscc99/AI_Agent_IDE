@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FileExplorer } from '@/components/FileExplorer';
 import { CodeEditor } from '@/components/CodeEditor';
 import { ChatPanel } from '@/components/ChatPanel';
@@ -17,39 +17,42 @@ export default function Home() {
   const [chatWidth, setChatWidth] = useState(380);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState<'chat' | 'debug'>('chat');
-  const [debugSession, setDebugSession] = useState<any>(null);
-  const [debugEvents, setDebugEvents] = useState<any[]>([]);
+  const [workflowData, setWorkflowData] = useState<any>(null);
+  const [workflowLoading, setWorkflowLoading] = useState(false);
+  const [workflowError, setWorkflowError] = useState<string | null>(null);
   
+  const fetchWorkflow = useCallback(async () => {
+    try {
+      setWorkflowLoading(true);
+      setWorkflowError(null);
+      const response = await fetch(`/api/workflow?sessionId=${sessionId}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch workflow');
+      }
+      setWorkflowData(data.workflow);
+    } catch (error: any) {
+      setWorkflowError(error.message);
+    } finally {
+      setWorkflowLoading(false);
+    }
+  }, [sessionId]);
+
   // 刷新当前文件
   const refreshCurrentFile = () => {
     setRefreshTrigger(prev => prev + 1);
   };
   
-  // 处理调试事件
-  const handleDebugEvent = (event: any) => {
-    setDebugEvents(prev => [...prev, event]);
-  };
-  
-  // 构建调试会话数据（工作流程可视化）
+  // 处理调试事件 -> 触发工作流刷新
+  const handleDebugEvent = useCallback(() => {
+    fetchWorkflow();
+  }, [fetchWorkflow]);
+
   useEffect(() => {
-    if (debugEvents.length > 0) {
-      const session = {
-        id: sessionId,
-        startTime: debugEvents[0]?.timestamp || Date.now(),
-        endTime: Date.now(),
-        events: debugEvents.map(e => ({
-          id: Math.random().toString(36).substr(2, 9),
-          sessionId: sessionId,
-          type: e.type,
-          timestamp: e.timestamp,
-          data: e.data || { content: e.content },
-          duration: e.duration
-        })),
-        summary: null // 不再显示性能统计
-      };
-      setDebugSession(session);
+    if (activeTab === 'debug') {
+      fetchWorkflow();
     }
-  }, [debugEvents, sessionId]);
+  }, [activeTab, fetchWorkflow]);
   
   return (
     <div className="flex h-screen bg-white text-gray-900">
@@ -180,7 +183,7 @@ export default function Home() {
           <button
             onClick={() => {
               setActiveTab('debug');
-              fetchDebugData();
+              fetchWorkflow();
             }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === 'debug'
@@ -203,7 +206,10 @@ export default function Home() {
             />
           ) : (
             <DebugPanel 
-              session={debugSession}
+              workflow={workflowData}
+              isLoading={workflowLoading}
+              error={workflowError}
+              onRefresh={fetchWorkflow}
             />
           )}
         </div>
@@ -211,5 +217,3 @@ export default function Home() {
     </div>
   );
 }
-
-

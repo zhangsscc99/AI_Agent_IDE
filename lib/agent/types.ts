@@ -81,3 +81,43 @@ export interface CodeChangeProposal {
   reasoning: string;
   timestamp: Date;
 }
+
+// 工作流追踪
+export type WorkflowStepStatus = 'pending' | 'in_progress' | 'completed' | 'error';
+
+export type WorkflowStepType = 'task' | 'tool' | 'checkpoint';
+
+export interface WorkflowStep {
+  id: string;
+  sessionId: string;
+  title: string;
+  description?: string;
+  status: WorkflowStepStatus;
+  type: WorkflowStepType;
+  parentId?: string;
+  startedAt: number;
+  completedAt?: number;
+  metadata?: Record<string, any>;
+}
+
+export interface WorkflowRun {
+  id: string;
+  sessionId: string;
+  createdAt: number;
+  updatedAt: number;
+  steps: WorkflowStep[];
+}
+
+// 代码修改检查点
+export type CheckpointStatus = 'pending' | 'applied' | 'rejected';
+
+export interface CodeCheckpoint {
+  id: string;
+  sessionId: string;
+  filePath: string;
+  originalContent: string;
+  modifiedContent: string;
+  status: CheckpointStatus;
+  createdAt: number;
+  updatedAt: number;
+}

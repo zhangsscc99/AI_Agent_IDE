@@ -448,13 +448,21 @@ export function ChatPanel({ sessionId, currentFile, onFileModified, onDebugEvent
                       filePath: pendingChange.filePath,
                       content: pendingChange.modifiedContent,
                       approved: true,
+                      checkpointId: pendingChange.id,
                     }),
                   });
                   
                   if (response.ok) {
                     setPendingChange(null);
                     if (onFileModified) onFileModified();
-                    
+                    if (onDebugEvent) {
+                      onDebugEvent({
+                        type: 'checkpoint_update',
+                        timestamp: Date.now(),
+                        data: { checkpointId: pendingChange.id, status: 'approved' }
+                      });
+                    }
+
                     const successMsg: Message = {
                       id: generateUUID(),
                       role: 'assistant',
@@ -468,8 +476,30 @@ export function ChatPanel({ sessionId, currentFile, onFileModified, onDebugEvent
                   setPendingChange({ ...pendingChange, isApplying: false });
                 }
               }}
-              onReject={() => {
+              onReject={async () => {
+                setPendingChange({ ...pendingChange, isApplying: true });
+                try {
+                  await fetch('/api/agent/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      sessionId,
+                      filePath: pendingChange.filePath,
+                      approved: false,
+                      checkpointId: pendingChange.id,
+                    }),
+                  });
+                } catch (error) {
+                  console.error('Failed to reject changes:', error);
+                }
                 setPendingChange(null);
+                if (onDebugEvent) {
+                  onDebugEvent({
+                    type: 'checkpoint_update',
+                    timestamp: Date.now(),
+                    data: { checkpointId: pendingChange.id, status: 'rejected' }
+                  });
+                }
                 const rejectMsg: Message = {
                   id: generateUUID(),
                   role: 'assistant',

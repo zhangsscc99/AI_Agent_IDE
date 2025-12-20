@@ -1,10 +1,11 @@
 // Agent 执行器 - 核心状态机
-import { Message, AgentContext, Task, TaskStatus } from './types';
+import { Message, AgentContext } from './types';
 import { LLMClient } from './llm';
 import { TOOLS, toolsToFunctions } from './tools';
 import { memoryManager } from './memory';
 import { debugTracer } from '../debug/tracer';
-import crypto from 'crypto';
+import { workflowManager } from './workflow';
+import { checkpointStore } from './checkpoints';
 
 export interface AgentExecutorOptions {
   sessionId: string;
@@ -19,6 +20,8 @@ export class AgentExecutor {
   private context: AgentContext;
   private systemPrompt: string;
   private inferredFile: string | null = null;
+  private workflowRootStepId: string | null = null;
+  private toolCallSteps: Map<string, string> = new Map();
   
   constructor(options: AgentExecutorOptions) {
     this.options = options;
@@ -149,7 +152,15 @@ export class AgentExecutor {
       if (this.options.enableDebug) {
         debugTracer.startSession(this.context.sessionId);
       }
-      
+
+      // 初始化工作流状态
+      this.toolCallSteps.clear();
+      const rootStep = workflowManager.startWorkflow(
+        this.context.sessionId,
+        userMessage
+      );
+      this.workflowRootStepId = rootStep?.id || null;
+
       // 保存用户消息到记忆
       await memoryManager.addMemory({
         sessionId: this.context.sessionId,
@@ -249,12 +260,20 @@ export class AgentExecutor {
             content: fullResponse,
             metadata: { role: 'assistant' },
           });
-          
+
           // 结束调试会话
           if (this.options.enableDebug) {
             debugTracer.endSession(this.context.sessionId);
           }
-          
+
+          if (this.workflowRootStepId) {
+            workflowManager.completeStep(
+              this.context.sessionId,
+              this.workflowRootStepId,
+              { response: fullResponse }
+            );
+          }
+
           yield { type: 'done', content: '' };
           break;
         }
@@ -296,12 +315,33 @@ export class AgentExecutor {
               ? originalContent.replace(/\\r\\n/g, '\r\n').replace(/\\n/g, '\n')
               : originalContent;
             
+            const checkpoint = checkpointStore.create(this.context.sessionId, {
+              filePath,
+              originalContent: fixedOriginalContent,
+              modifiedContent: fixedNewContent,
+              status: 'pending',
+            });
+
+            if (this.workflowRootStepId) {
+              workflowManager.startStep(this.context.sessionId, {
+                parentId: this.workflowRootStepId,
+                title: `修改 ${filePath}`,
+                description: 'AI 提交了代码修改，等待审批',
+                type: 'checkpoint',
+                status: 'pending',
+                metadata: {
+                  checkpointId: checkpoint.id,
+                  filePath,
+                },
+              });
+            }
+
             // 请求用户审批
             yield {
               type: 'approval_required',
               content: `我想修改 ${filePath}，请查看修改内容并确认`,
               data: {
-                id: crypto.randomUUID(),
+                id: checkpoint.id,
                 filePath,
                 originalContent: fixedOriginalContent,
                 modifiedContent: fixedNewContent,
@@ -339,6 +379,28 @@ export class AgentExecutor {
               toolArgs
             );
           }
+
+          let workflowStepId: string | null = null;
+          if (this.workflowRootStepId) {
+            const description = (() => {
+              try {
+                return JSON.stringify(toolArgs, null, 2).slice(0, 500);
+              } catch {
+                return '';
+              }
+            })();
+            const step = workflowManager.startStep(this.context.sessionId, {
+              parentId: this.workflowRootStepId,
+              title: `调用 ${toolName}`,
+              description,
+              type: 'tool',
+              metadata: { tool: toolName, args: toolArgs },
+            });
+            workflowStepId = step?.id || null;
+            if (workflowStepId) {
+              this.toolCallSteps.set(toolCall.id, workflowStepId);
+            }
+          }
           
           try {
             const tool = TOOLS[toolName];
@@ -357,6 +419,14 @@ export class AgentExecutor {
                 this.context.sessionId,
                 toolEventId,
                 result
+              );
+            }
+
+            if (workflowStepId) {
+              workflowManager.completeStep(
+                this.context.sessionId,
+                workflowStepId,
+                { result }
               );
             }
             
@@ -405,7 +475,16 @@ export class AgentExecutor {
               }
               debugTracer.traceError(this.context.sessionId, error);
             }
-            
+
+            const failedStepId = workflowStepId || this.toolCallSteps.get(toolCall.id);
+            if (failedStepId) {
+              workflowManager.failStep(
+                this.context.sessionId,
+                failedStepId,
+                error.message
+              );
+            }
+
             yield {
               type: 'error',
               content: `工具执行失败: ${error.message}`,
@@ -430,6 +509,14 @@ export class AgentExecutor {
           );
           debugTracer.endSession(this.context.sessionId);
         }
+
+        if (this.workflowRootStepId) {
+          workflowManager.failStep(
+            this.context.sessionId,
+            this.workflowRootStepId,
+            '达到最大迭代次数'
+          );
+        }
         
         yield {
           type: 'error',
@@ -440,6 +527,14 @@ export class AgentExecutor {
       if (this.options.enableDebug) {
         debugTracer.traceError(this.context.sessionId, error);
         debugTracer.endSession(this.context.sessionId);
+      }
+
+      if (this.workflowRootStepId) {
+        workflowManager.failStep(
+          this.context.sessionId,
+          this.workflowRootStepId,
+          error.message
+        );
       }
       
       yield {
@@ -454,5 +549,3 @@ export class AgentExecutor {
     await memoryManager.clearSession(this.context.sessionId);
   }
 }
-
-
