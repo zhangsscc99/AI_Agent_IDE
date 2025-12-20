@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { DiffViewer } from './DiffViewer';
 import { generateUUID } from '@/lib/utils/uuid';
+import { WorkflowRun, WorkflowStep } from '@/lib/agent/types';
 
 interface Message {
   id: string;
@@ -27,17 +28,26 @@ interface PendingChange {
 interface ChatPanelProps {
   sessionId: string;
   currentFile: { path: string; content: string } | null;
+  workflow?: WorkflowRun | null;
   onFileModified?: () => void;
   onDebugEvent?: (event: any) => void;
 }
 
-export function ChatPanel({ sessionId, currentFile, onFileModified, onDebugEvent }: ChatPanelProps) {
+export function ChatPanel({ sessionId, currentFile, workflow, onFileModified, onDebugEvent }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [currentAssistantMessage, setCurrentAssistantMessage] = useState('');
   const [pendingChange, setPendingChange] = useState<PendingChange | null>(null);
+  const [selectedWorkflowStepId, setSelectedWorkflowStepId] = useState<string | null>(null);
+  const [checkpointPreview, setCheckpointPreview] = useState<{
+    filePath: string;
+    originalContent: string;
+    modifiedContent: string;
+  } | null>(null);
+  const [checkpointPreviewLoading, setCheckpointPreviewLoading] = useState(false);
+  const [checkpointPreviewError, setCheckpointPreviewError] = useState<string | null>(null);
   
   // 从 localStorage 加载聊天记录
   useEffect(() => {
@@ -69,6 +79,106 @@ export function ChatPanel({ sessionId, currentFile, onFileModified, onDebugEvent
   useEffect(() => {
     scrollToBottom();
   }, [messages, currentAssistantMessage]);
+
+  useEffect(() => {
+    if (!workflow?.steps?.length) {
+      setSelectedWorkflowStepId(null);
+      setCheckpointPreview(null);
+      return;
+    }
+
+    if (selectedWorkflowStepId) {
+      const exists = workflow.steps.some(step => step.id === selectedWorkflowStepId);
+      if (!exists) {
+        setSelectedWorkflowStepId(null);
+        setCheckpointPreview(null);
+      }
+    }
+  }, [workflow, selectedWorkflowStepId]);
+
+  const selectedWorkflowStep = useMemo<WorkflowStep | null>(() => {
+    if (!selectedWorkflowStepId || !workflow?.steps) return null;
+    return workflow.steps.find(step => step.id === selectedWorkflowStepId) || null;
+  }, [selectedWorkflowStepId, workflow]);
+
+  useEffect(() => {
+    const checkpointId = selectedWorkflowStep?.metadata?.checkpointId;
+    if (!checkpointId) {
+      setCheckpointPreview(null);
+      setCheckpointPreviewError(null);
+      setCheckpointPreviewLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const loadCheckpoint = async () => {
+      try {
+        setCheckpointPreviewLoading(true);
+        setCheckpointPreviewError(null);
+        const response = await fetch(`/api/workflow/checkpoint?checkpointId=${checkpointId}`);
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || '获取代码差异失败');
+        }
+        if (!cancelled) {
+          setCheckpointPreview({
+            filePath: data.checkpoint.filePath,
+            originalContent: data.checkpoint.originalContent,
+            modifiedContent: data.checkpoint.modifiedContent,
+          });
+        }
+      } catch (error: any) {
+        if (!cancelled) {
+          setCheckpointPreviewError(error.message);
+          setCheckpointPreview(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setCheckpointPreviewLoading(false);
+        }
+      }
+    };
+
+    loadCheckpoint();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedWorkflowStep?.metadata?.checkpointId]);
+
+  const workflowStatusStyles: Record<string, string> = {
+    pending: 'bg-yellow-50 text-yellow-700 border border-yellow-100',
+    in_progress: 'bg-blue-50 text-blue-700 border border-blue-100',
+    completed: 'bg-green-50 text-green-700 border border-green-100',
+    error: 'bg-red-50 text-red-600 border border-red-100',
+  };
+
+  const workflowStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return '待处理';
+      case 'in_progress':
+        return '执行中';
+      case 'completed':
+        return '已完成';
+      case 'error':
+        return '失败';
+      default:
+        return status;
+    }
+  };
+
+  const workflowTypeLabel = (type: string) => {
+    switch (type) {
+      case 'task':
+        return '主任务';
+      case 'tool':
+        return '工具调用';
+      case 'checkpoint':
+        return '代码修改';
+      default:
+        return type;
+    }
+  };
   
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
@@ -319,7 +429,88 @@ export function ChatPanel({ sessionId, currentFile, onFileModified, onDebugEvent
           )}
         </div>
       </div>
-      
+
+      {/* Todo 列表 */}
+      {workflow?.steps?.length ? (
+        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Todo 列表</p>
+              <p className="text-xs text-gray-500">点击节点可查看执行详情 / diff</p>
+            </div>
+            <span className="text-xs text-gray-400">{workflow.steps.length} 个节点</span>
+          </div>
+          <div className="mt-3 space-y-2 max-h-48 overflow-y-auto pr-1">
+            {workflow.steps.map(step => (
+              <button
+                key={step.id}
+                onClick={() => setSelectedWorkflowStepId(prev => prev === step.id ? null : step.id)}
+                className={`w-full text-left rounded-xl px-3 py-2 transition-all border ${
+                  selectedWorkflowStepId === step.id
+                    ? 'bg-white border-blue-300 shadow-sm'
+                    : 'bg-white/80 border-gray-200 hover:border-blue-200'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-gray-900 truncate">{step.title}</span>
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full ${
+                    workflowStatusStyles[step.status] || 'bg-gray-100 text-gray-600 border border-gray-200'
+                  }`}>
+                    {workflowStatusLabel(step.status)}
+                  </span>
+                </div>
+                <div className="mt-1 text-[11px] text-gray-500 flex items-center gap-2">
+                  <span>{workflowTypeLabel(step.type)}</span>
+                  {step.metadata?.filePath && (
+                    <span className="truncate text-gray-400">{step.metadata.filePath}</span>
+                  )}
+                  {step.metadata?.checkpointId && <span className="text-blue-500">检查点</span>}
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {selectedWorkflowStep && (
+            <div className="mt-3 border border-gray-200 rounded-xl bg-white">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <p className="text-xs font-semibold text-gray-700">节点详情</p>
+                {selectedWorkflowStep.description && (
+                  <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap break-words">
+                    {selectedWorkflowStep.description}
+                  </p>
+                )}
+              </div>
+              <div className="p-3 space-y-2 text-xs text-gray-600">
+                <p>状态：{workflowStatusLabel(selectedWorkflowStep.status)}</p>
+                <p>类型：{workflowTypeLabel(selectedWorkflowStep.type)}</p>
+                {selectedWorkflowStep.metadata?.filePath && (
+                  <p>文件：{selectedWorkflowStep.metadata.filePath}</p>
+                )}
+              </div>
+              {selectedWorkflowStep.metadata?.checkpointId && (
+                <div className="border-t border-gray-100">
+                  {checkpointPreviewLoading && (
+                    <div className="p-3 text-xs text-gray-500">正在加载代码差异...</div>
+                  )}
+                  {checkpointPreviewError && (
+                    <div className="p-3 text-xs text-red-500">{checkpointPreviewError}</div>
+                  )}
+                  {checkpointPreview && !checkpointPreviewLoading && !checkpointPreviewError && (
+                    <DiffViewer
+                      filePath={checkpointPreview.filePath}
+                      originalContent={checkpointPreview.originalContent}
+                      modifiedContent={checkpointPreview.modifiedContent}
+                      mode="preview"
+                      height={260}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : null}
+
       {/* 消息列表 */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.length === 0 && !currentAssistantMessage && (

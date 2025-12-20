@@ -201,6 +201,7 @@ export default function Home() {
             <ChatPanel 
               sessionId={sessionId} 
               currentFile={currentFile}
+              workflow={workflowData}
               onFileModified={refreshCurrentFile}
               onDebugEvent={handleDebugEvent}
             />
